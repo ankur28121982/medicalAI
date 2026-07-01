@@ -1,0 +1,91 @@
+{
+  "version": 1,
+  "random_pick_rules": {
+    "enabled": true,
+    "default_language": "hi",
+    "show_during_waiting": true,
+    "show_on_result_screen": true,
+    "max_items_to_show": 1,
+    "rotate_text_every_seconds": 5
+  },
+  "calm_messages": [
+    {
+      "id": "hi_bk_soul_001",
+      "enabled": true,
+      "language": "hi",
+      "title": "थोड़ा मन शांत करें",
+      "text": "मैं शांत आत्मा हूँ। मैं सही जानकारी को धैर्य से समझ रहा/रही हूँ।",
+      "source_label": "BK meditation thought"
+    },
+    {
+      "id": "hi_bk_peace_002",
+      "enabled": true,
+      "language": "hi",
+      "title": "एक छोटा शांति अभ्यास",
+      "text": "धीरे सांस लें। मन में सोचें: मैं सुरक्षित हूँ, शांत हूँ, और सही कदम doctor से पूछकर लूंगा/लूंगी।",
+      "source_label": "Calm support"
+    },
+    {
+      "id": "hi_bk_body_003",
+      "enabled": true,
+      "language": "hi",
+      "title": "कृतज्ञता",
+      "text": "अपने शरीर को धन्यवाद दें। Medical decision हमेशा doctor से confirm करें।",
+      "source_label": "Calm support"
+    },
+    {
+      "id": "en_bk_soul_001",
+      "enabled": true,
+      "language": "en",
+      "title": "Calm your mind",
+      "text": "I am a peaceful soul. I will understand this report calmly and discuss the right next step with a doctor.",
+      "source_label": "BK meditation thought"
+    },
+    {
+      "id": "en_bk_peace_002",
+      "enabled": true,
+      "language": "en",
+      "title": "Short calm practice",
+      "text": "Breathe slowly. Stay calm. This report is only a starting point for a doctor discussion.",
+      "source_label": "Calm support"
+    }
+  ],
+  "youtube_videos": [
+    {
+      "id": "hi_bk_video_001",
+      "enabled": true,
+      "language": "hi",
+      "title": "2 minute meditation for peace",
+      "description": "AI report तैयार होते समय मन शांत रखने के लिए optional video.",
+      "youtube_video_id": "PASTE_YOUTUBE_VIDEO_ID_HERE",
+      "youtube_url": "https://www.youtube.com/watch?v=PASTE_YOUTUBE_VIDEO_ID_HERE",
+      "placement": ["waiting", "result"],
+      "tags": ["peace", "bk", "meditation"],
+      "medical_disclaimer": "यह केवल मन की शांति के लिए है। यह diagnosis या treatment नहीं है।"
+    },
+    {
+      "id": "hi_bk_video_002",
+      "enabled": true,
+      "language": "hi",
+      "title": "मन को शांत करने का अभ्यास",
+      "description": "अगर report देखकर tension हो रही है, तो यह छोटा calm video देख सकते हैं।",
+      "youtube_video_id": "PASTE_YOUTUBE_VIDEO_ID_HERE",
+      "youtube_url": "https://www.youtube.com/watch?v=PASTE_YOUTUBE_VIDEO_ID_HERE",
+      "placement": ["waiting", "result"],
+      "tags": ["calm", "stress", "bk"],
+      "medical_disclaimer": "यह doctor consultation की जगह नहीं लेता।"
+    },
+    {
+      "id": "en_bk_video_001",
+      "enabled": true,
+      "language": "en",
+      "title": "Short peace meditation",
+      "description": "A short calming video while your report is being prepared.",
+      "youtube_video_id": "PASTE_YOUTUBE_VIDEO_ID_HERE",
+      "youtube_url": "https://www.youtube.com/watch?v=PASTE_YOUTUBE_VIDEO_ID_HERE",
+      "placement": ["waiting", "result"],
+      "tags": ["peace", "meditation"],
+      "medical_disclaimer": "For calmness only. Not medical advice."
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+Run PowerShell as Administrator after backend is running in WSL.
+First get WSL IP in WSL:
+  hostname -I | awk '{print $1}'
+
+Then replace PASTE_WSL_IP_HERE below and run in Admin PowerShell:
+
+netsh interface portproxy delete v4tov4 listenport=8000 listenaddress=0.0.0.0
+netsh interface portproxy add v4tov4 listenaddress=0.0.0.0 listenport=8000 connectaddress=PASTE_WSL_IP_HERE connectport=8000
+New-NetFirewallRule -DisplayName "Medical Report AI Backend 8000" -Direction Inbound -Protocol TCP -LocalPort 8000 -Action Allow
+
+Phone browser test:
+  http://192.168.29.76:8000/health

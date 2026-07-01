@@ -1,0 +1,3 @@
+# Copy this to local.properties only if Gradle cannot find your Android SDK.
+# Do not commit local.properties.
+sdk.dir=/home/ankur/Android/Sdk

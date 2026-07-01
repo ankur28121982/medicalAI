@@ -1,0 +1,59 @@
+# Secrets / env files
+.env
+.env.*
+*.env
+backend.env
+*.key
+*.pem
+*.p12
+*.jks
+*.keystore
+*token*
+*secret*
+*OPENAI*
+*openai*
+
+# Local backup folders - never push
+backups/
+backups_*/
+backup/
+backup_*/
+*_before_*
+*.before_*
+
+# Android local/build files
+local.properties
+.gradle/
+build/
+**/build/
+*.apk
+*.aab
+
+# Python local/build files
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+
+# Medical/private data
+uploads/
+uploaded_reports/
+reports/
+saved_reports/
+generated_reports/
+downloads/
+pdf_exports/
+audit_logs/
+logs/
+backend/storage/
+*.db
+*.sqlite
+*.sqlite3
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

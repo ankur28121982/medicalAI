@@ -1,0 +1,55 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.globalresearchforum.medreport'
+    compileSdk 35
+
+    buildFeatures { buildConfig true }
+
+    def appToken = System.getenv("MEDREPORT_APP_TOKEN") ?: "change-this-token-before-release"
+
+    defaultConfig {
+        applicationId 'com.globalresearchforum.medreport'
+        minSdk 24
+        targetSdk 35
+        versionCode 18
+        versionName '1.0.18'
+
+        buildConfigField "String", "API_BASE_URL", '"https://medical-api.globalresearchforum.in"'
+        buildConfigField "String", "APP_ACCESS_TOKEN", "\"${appToken}\""
+        manifestPlaceholders = [usesCleartextTraffic: "false"]
+    }
+
+    signingConfigs {
+        release {
+            def ksFile = System.getenv("MEDREPORT_KEYSTORE_FILE")
+            if (ksFile != null && ksFile.trim() != "") {
+                storeFile file(ksFile)
+                storePassword System.getenv("MEDREPORT_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("MEDREPORT_KEY_ALIAS")
+                keyPassword System.getenv("MEDREPORT_KEY_PASSWORD")
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-debug"
+            buildConfigField "String", "API_BASE_URL", '"http://192.168.29.76:8000"'
+            manifestPlaceholders = [usesCleartextTraffic: "true"]
+        }
+        release {
+            minifyEnabled false
+            shrinkResources false
+            signingConfig signingConfigs.release
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core:1.13.1'
+}
