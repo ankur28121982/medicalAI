@@ -10,7 +10,7 @@ from app.core.config import get_settings
 from app.core.crypto import encrypt_bytes
 from app.core.rate_limit import check_rate_limit
 from app.core.security import require_app_token
-from app.db import audit_event, create_report, delete_report, get_patient, get_report, list_reports, update_analysis, update_extraction, upsert_patient
+from app.db import audit_event, create_report, delete_report, get_report, list_reports, update_analysis, update_extraction, upsert_patient
 from app.schemas import AnalyzeRequest, AnalyzeResponse, DeleteResponse, HistoryResponse, UploadResponse
 from app.services.openai_medical_service import analyze_report, extract_report_files
 
@@ -138,11 +138,11 @@ async def upload_report(
         if len(files) > MAX_FILES_PER_REPORT:
             raise HTTPException(status_code=400, detail=f"Maximum {MAX_FILES_PER_REPORT} files allowed in one report.")
 
+        # V19 independence rule: use only profile values explicitly supplied in this run.
+        # A saved profile/report may remain visible in history, but it is never loaded as AI context.
         profile = _parse_profile(patient_profile_json)
         if profile:
             upsert_patient(device_id, profile)
-        else:
-            profile = get_patient(device_id)
 
         report_id = str(uuid.uuid4())
         stored_dir = settings.storage_path / "uploads" / device_id[:80] / report_id
@@ -196,6 +196,7 @@ async def upload_report(
         )
 
         extracted = await extract_report_files(files=openai_files, language=language, patient_profile=profile)
+        question_meta = extracted.pop("_question_generation_meta", {}) if isinstance(extracted, dict) else {}
         questions = extracted.get("questions") if isinstance(extracted.get("questions"), list) else []
         status_value = "needs_clear_typed_report" if extracted.get("document_quality", {}).get("handwritten_or_unclear") else "extracted"
         update_extraction(report_id, extracted, questions, status=status_value)
@@ -206,7 +207,34 @@ async def upload_report(
             model_used=settings.openai_extraction_model,
             latency_ms=_latency_ms(start),
             success=True,
-            event_json={"report_id": report_id, "file_count": len(files), "typed_text_used": has_text, "status": status_value},
+            event_json={
+                "report_id": report_id,
+                "file_count": len(files),
+                "typed_text_used": has_text,
+                "status": status_value,
+                "question_count": len(questions),
+                "question_options_validated": bool(question_meta.get("options_validated", False)),
+                "question_fallback_count": int(question_meta.get("fallback_count", 0) or 0),
+                "question_generation_source": str(question_meta.get("source", "unknown"))[:80],
+                "historical_context_used": False,
+                "current_run_only": True,
+            },
+        )
+        audit_event(
+            request_id=request_id,
+            endpoint="/v1/audit/clarifying_questions_generated",
+            device_id=device_id,
+            model_used=settings.openai_extraction_model,
+            latency_ms=0,
+            success=True,
+            event_json={
+                "report_id": report_id,
+                "question_count": len(questions),
+                "options_validated": bool(question_meta.get("options_validated", False)),
+                "fallback_used": int(question_meta.get("fallback_count", 0) or 0) > 0,
+                "fallback_count": int(question_meta.get("fallback_count", 0) or 0),
+                "historical_context_used": False,
+            },
         )
         return UploadResponse(
             request_id=request_id,
@@ -275,7 +303,14 @@ async def analyze_existing_report(request: Request, req: AnalyzeRequest, _: None
             model_used=settings.openai_medical_model,
             latency_ms=_latency_ms(start),
             success=True,
-            event_json={"report_id": req.report_id, "independent_run_no_history": True, "same_patient_previous_report_used": False, "question_count": len(req.user_answers)},
+            event_json={
+                "report_id": req.report_id,
+                "independent_run_no_history": True,
+                "historical_context_used": False,
+                "same_patient_previous_report_used": False,
+                "current_run_answer_count": len(req.user_answers),
+                "saved_history_remains_viewable": True,
+            },
         )
         return AnalyzeResponse(request_id=request_id, report_id=req.report_id, status="analyzed", analysis=analysis)
     except HTTPException as exc:

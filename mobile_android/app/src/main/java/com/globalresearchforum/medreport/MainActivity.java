@@ -130,6 +130,16 @@ public class MainActivity extends Activity {
     private final List<String> selectedFilenames = new ArrayList<>();
     private final List<String> selectedMimes = new ArrayList<>();
     private final Map<String, String> questionAnswers = new HashMap<>();
+
+    private static final class QuestionControl {
+        String answerType = "free_text";
+        boolean required = true;
+        Spinner spinner;
+        EditText textInput;
+        EditText otherInput;
+        final List<CheckBox> checkBoxes = new ArrayList<>();
+    }
+
     private JSONArray currentQuestions = new JSONArray();
     private String extractionCorrectionsText = "";
     private JSONObject lastAnalysisForExport = null;
@@ -1007,7 +1017,7 @@ public class MainActivity extends Activity {
         if (currentQuestions.length() == 0) {
             questionsBox.addView(text("No extra safety questions are needed. You can prepare the final report.", 13, false, COLOR_MUTED));
         } else {
-            questionsBox.addView(text("Tap Review AI questions. Choose Yes, No, or Don't know. Don't know is allowed, but the report confidence will be lower.", 13, false, COLOR_MUTED));
+            questionsBox.addView(text("Tap Review AI questions. Each question will show its own relevant choices or a simple text field. Not sure is allowed where shown.", 13, false, COLOR_MUTED));
         }
         if (questionDialogButton != null) questionDialogButton.setVisibility(currentQuestions.length() > 0 ? View.VISIBLE : View.GONE);
         updateProceedButtons();
@@ -1032,7 +1042,7 @@ public class MainActivity extends Activity {
         dialogScroll.addView(box);
 
         box.addView(text("Answer these few questions", 20, true, COLOR_PRIMARY_DARK));
-        box.addView(text("Choose the closest answer. If you do not know, choose Don't know. After this, the report will open automatically.", 13, false, COLOR_MUTED));
+        box.addView(text("Each question has choices made for that exact question. Where choices are not safe, type a short answer. After this, the report will open automatically.", 13, false, COLOR_MUTED));
 
         final EditText finalLanguage = hiddenEdit(languageInput == null ? "Hindi" : languageInput.getText().toString().trim());
         box.addView(finalLanguage);
@@ -1041,8 +1051,7 @@ public class MainActivity extends Activity {
         EditText corrections = editStandalone("Correction to what AI read, if any", extractionCorrectionsText == null ? "" : extractionCorrectionsText, 3);
         box.addView(corrections);
 
-        final Map<String, Spinner> spinners = new HashMap<>();
-        // Options are decided per question. Some questions need body-part choices, not Yes/No.
+        final Map<String, QuestionControl> controls = new HashMap<>();
 
         for (int i = 0; i < currentQuestions.length(); i++) {
             JSONObject q = currentQuestions.optJSONObject(i);
@@ -1051,25 +1060,70 @@ public class MainActivity extends Activity {
             TextView qText = text((i + 1) + ". " + q.optString("question"), 15, true, COLOR_TEXT);
             qText.setPadding(0, dp(14), 0, dp(2));
             box.addView(qText);
-            String why = q.optString("why_needed", "This can change how a doctor interprets the report.");
-            box.addView(text("Why asked: " + why + "\nIf you choose Don't know, I will still continue, but confidence may be lower.", 12, false, COLOR_MUTED));
+            String why = q.optString("why_needed", "This can change how a doctor interprets the current report.");
+            box.addView(text("Why asked: " + why, 12, false, COLOR_MUTED));
 
-            Spinner spinner = new Spinner(this);
-            final String[] options = getQuestionOptions(q);
-            ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, options);
-            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-            spinner.setAdapter(adapter);
+            QuestionControl control = new QuestionControl();
+            control.answerType = questionAnswerType(q);
+            control.required = q.optBoolean("required", true);
             String old = questionAnswers.get(id);
-            if (old != null) {
-                for (int j = 0; j < options.length; j++) {
-                    if (options[j].equalsIgnoreCase(old)) spinner.setSelection(j);
+
+            if ("single_select".equals(control.answerType) || "yes_no".equals(control.answerType)) {
+                Spinner spinner = new Spinner(this);
+                final String[] options = getQuestionOptions(q);
+                ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, options);
+                adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+                spinner.setAdapter(adapter);
+                if (old != null) {
+                    String oldChoice = old.startsWith("Other: ") ? "Other" : old.startsWith("अन्य: ") ? "अन्य" : old;
+                    for (int j = 0; j < options.length; j++) {
+                        if (options[j].equalsIgnoreCase(oldChoice)) spinner.setSelection(j);
+                    }
                 }
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                lp.setMargins(0, dp(6), 0, dp(8));
+                spinner.setLayoutParams(lp);
+                box.addView(spinner);
+                control.spinner = spinner;
+
+                if (q.optBoolean("allow_other", false)) {
+                    String oldOther = "";
+                    if (old != null && old.contains(":")) oldOther = old.substring(old.indexOf(':') + 1).trim();
+                    EditText other = editStandalone(words("If you chose Other, type it here", "यदि आपने अन्य चुना है, तो यहाँ लिखें"), oldOther, 1);
+                    box.addView(other);
+                    control.otherInput = other;
+                }
+            } else if ("multi_select".equals(control.answerType)) {
+                JSONArray supplied = q.optJSONArray("answer_options");
+                ArrayList<String> selectedOld = new ArrayList<>();
+                if (old != null) {
+                    for (String part : old.split("\\s*\\|\\s*")) if (!part.trim().isEmpty()) selectedOld.add(part.trim());
+                }
+                if (supplied != null) {
+                    for (int j = 0; j < supplied.length(); j++) {
+                        String option = supplied.optString(j, "").trim();
+                        if (option.isEmpty()) continue;
+                        CheckBox check = new CheckBox(this);
+                        check.setText(option);
+                        check.setTextColor(COLOR_TEXT);
+                        check.setChecked(selectedOld.contains(option));
+                        box.addView(check);
+                        control.checkBoxes.add(check);
+                    }
+                }
+                if (q.optBoolean("allow_other", false)) {
+                    EditText other = editStandalone(words("Other answer, if needed", "अन्य उत्तर, यदि आवश्यक हो"), "", 1);
+                    box.addView(other);
+                    control.otherInput = other;
+                }
+            } else {
+                String placeholder = q.optString("placeholder", "").trim();
+                if (placeholder.isEmpty()) placeholder = words("Type your answer", "अपना उत्तर लिखें");
+                EditText answerInput = editStandalone(placeholder, old == null ? "" : old, "free_text".equals(control.answerType) ? 2 : 1);
+                box.addView(answerInput);
+                control.textInput = answerInput;
             }
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-            lp.setMargins(0, dp(6), 0, dp(8));
-            spinner.setLayoutParams(lp);
-            box.addView(spinner);
-            spinners.put(id, spinner);
+            controls.put(id, control);
         }
 
         final AlertDialog dialog = new AlertDialog.Builder(this)
@@ -1081,14 +1135,18 @@ public class MainActivity extends Activity {
             Window window = dialog.getWindow();
             if (window != null) window.setLayout(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-                for (Map.Entry<String, Spinner> entry : spinners.entrySet()) {
-                    Object selected = entry.getValue().getSelectedItem();
-                    String answer = selected == null ? "" : selected.toString();
-                    if (answer.trim().isEmpty() || "Select answer".equals(answer)) {
-                        toast("Please choose an answer for every question. Don't know is okay.");
+                for (int i = 0; i < currentQuestions.length(); i++) {
+                    JSONObject q = currentQuestions.optJSONObject(i);
+                    if (q == null) continue;
+                    String id = q.optString("id", "q" + i);
+                    QuestionControl control = controls.get(id);
+                    if (control == null) continue;
+                    String answer = readQuestionAnswer(control);
+                    if (answer.trim().isEmpty() && control.required) {
+                        toast("Please answer question " + (i + 1) + ". Choose Not sure if it is available.");
                         return;
                     }
-                    questionAnswers.put(entry.getKey(), answer);
+                    questionAnswers.put(id, answer.trim().isEmpty() ? "Not answered" : answer.trim());
                 }
                 String chosenLanguage = finalLanguage.getText().toString().trim();
                 if (chosenLanguage.isEmpty()) chosenLanguage = "English";
@@ -1097,7 +1155,6 @@ public class MainActivity extends Activity {
                 renderQuestionSummary();
                 updateProceedButtons();
                 dialog.dismiss();
-                // Min-click journey: after user answers AI questions, prepare final report directly.
                 if (currentReportId != null && !currentReportId.trim().isEmpty() && isRequiredProfileReady() && allQuestionsAnswered()) {
                     analyzeCurrentReport();
                 } else {
@@ -1108,39 +1165,58 @@ public class MainActivity extends Activity {
         dialog.show();
     }
 
+    private String questionAnswerType(JSONObject q) {
+        String type = q == null ? "" : q.optString("answer_type", "").trim().toLowerCase(Locale.US);
+        if ("single_select".equals(type) || "multi_select".equals(type) || "yes_no".equals(type)
+                || "number".equals(type) || "date".equals(type) || "free_text".equals(type)) {
+            return type;
+        }
+        JSONArray options = q == null ? null : q.optJSONArray("answer_options");
+        return options != null && options.length() > 0 ? "single_select" : "free_text";
+    }
+
     private String[] getQuestionOptions(JSONObject q) {
         ArrayList<String> values = new ArrayList<>();
         values.add("Select answer");
-        String qt = q == null ? "" : q.optString("question", "").toLowerCase(Locale.US);
-
-        // Decide by question meaning first. This prevents wrong dropdowns like Yes/No for "Where is pain?".
-        if (qt.contains("where") || qt.contains("कहाँ") || qt.contains("pain location") || qt.contains("pain") || qt.contains("दर्द")) {
-            String[] painOptions = new String[]{"No pain", "Lower abdomen / pelvis", "Upper abdomen", "Chest", "Back", "Head", "Legs or arms", "All over body", "Other", "Don't know"};
-            for (String v : painOptions) if (!values.contains(v)) values.add(v);
-        } else if (qt.contains("how long") || qt.contains("duration") || qt.contains("कब से") || qt.contains("कितने समय")) {
-            String[] durationOptions = new String[]{"Less than 1 day", "1 to 3 days", "More than 3 days", "More than 1 week", "More than 1 month", "Long time", "Don't know"};
-            for (String v : durationOptions) if (!values.contains(v)) values.add(v);
-        } else if (qt.contains("severity") || qt.contains("serious") || qt.contains("bleeding") || qt.contains("heavy") || qt.contains("ज्यादा") || qt.contains("कितना")) {
-            String[] severityOptions = new String[]{"No", "Mild", "Medium", "Severe", "Comes and goes", "Don't know"};
-            for (String v : severityOptions) if (!values.contains(v)) values.add(v);
-        } else if (qt.contains("pregnan") || qt.contains("period") || qt.contains("menstrual") || qt.contains("pregnancy") || qt.contains("गर्भ")) {
-            String[] options = new String[]{"Yes", "No", "Not applicable", "Don't know"};
-            for (String v : options) if (!values.contains(v)) values.add(v);
-        } else {
-            JSONArray supplied = q == null ? null : q.optJSONArray("answer_options");
-            if (supplied != null && supplied.length() > 0) {
-                for (int i = 0; i < supplied.length(); i++) {
-                    String v = supplied.optString(i, "").trim();
-                    if (!v.isEmpty() && !values.contains(v)) values.add(v);
-                }
-            } else {
-                values.add("Yes");
-                values.add("No");
-                values.add("Don't know");
+        JSONArray supplied = q == null ? null : q.optJSONArray("answer_options");
+        if (supplied != null) {
+            for (int i = 0; i < supplied.length(); i++) {
+                String value = supplied.optString(i, "").trim();
+                if (!value.isEmpty() && !values.contains(value)) values.add(value);
             }
         }
-        if (!values.contains("Don't know")) values.add("Don't know");
+        if (values.size() == 1) values.add(words("Not sure", "पता नहीं"));
         return values.toArray(new String[0]);
+    }
+
+    private String readQuestionAnswer(QuestionControl control) {
+        if (control == null) return "";
+        if (control.spinner != null) {
+            Object selected = control.spinner.getSelectedItem();
+            String value = selected == null ? "" : selected.toString().trim();
+            if (value.isEmpty() || "Select answer".equals(value)) return "";
+            if (("Other".equalsIgnoreCase(value) || "अन्य".equals(value)) && control.otherInput != null) {
+                String other = control.otherInput.getText().toString().trim();
+                if (other.isEmpty()) return "";
+                return value + ": " + other;
+            }
+            return value;
+        }
+        if (!control.checkBoxes.isEmpty()) {
+            ArrayList<String> selected = new ArrayList<>();
+            for (CheckBox check : control.checkBoxes) if (check.isChecked()) selected.add(check.getText().toString().trim());
+            if (control.otherInput != null) {
+                String other = control.otherInput.getText().toString().trim();
+                if (!other.isEmpty()) selected.add(words("Other", "अन्य") + ": " + other);
+            }
+            StringBuilder joined = new StringBuilder();
+            for (String value : selected) {
+                if (joined.length() > 0) joined.append(" | ");
+                joined.append(value);
+            }
+            return joined.toString();
+        }
+        return control.textInput == null ? "" : control.textInput.getText().toString().trim();
     }
 
     private void renderQuestionSummary() {
@@ -1154,7 +1230,7 @@ public class MainActivity extends Activity {
                 JSONObject q = currentQuestions.optJSONObject(i);
                 if (q == null) continue;
                 String id = q.optString("id", "q" + i);
-                sb.append("• ").append(q.optString("question")).append(" — ").append(questionAnswers.get(id)).append("\n");
+                sb.append("• ").append(q.optString("question")).append(" — ").append(questionAnswers.containsKey(id) ? questionAnswers.get(id) : "Not answered").append("\n");
             }
         }
         if (extractionCorrectionsText != null && !extractionCorrectionsText.trim().isEmpty()) {
@@ -1188,6 +1264,7 @@ public class MainActivity extends Activity {
             JSONObject q = currentQuestions.optJSONObject(i);
             if (q == null) continue;
             String id = q.optString("id", "q" + i);
+            if (!q.optBoolean("required", true)) continue;
             String answer = questionAnswers.get(id);
             if (answer == null || answer.trim().isEmpty() || "Select answer".equals(answer)) return false;
         }

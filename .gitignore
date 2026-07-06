@@ -57,3 +57,6 @@ backend/storage/
 Thumbs.db
 .idea/
 .vscode/
+
+# Required application source file
+!backend/app/services/openai_medical_service.py

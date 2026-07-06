@@ -14,10 +14,10 @@ android {
         applicationId 'com.globalresearchforum.medreport'
         minSdk 24
         targetSdk 35
-        versionCode 18
-        versionName '1.0.18'
+        versionCode 19
+        versionName '1.0.19'
 
-        buildConfigField "String", "API_BASE_URL", '"https://medical-api.globalresearchforum.in"'
+        buildConfigField "String", "API_BASE_URL", "\"https://medical-api.globalresearchforum.in\""
         buildConfigField "String", "APP_ACCESS_TOKEN", "\"${appToken}\""
         manifestPlaceholders = [usesCleartextTraffic: "false"]
     }
@@ -38,7 +38,7 @@ android {
         debug {
             applicationIdSuffix ".debug"
             versionNameSuffix "-debug"
-            buildConfigField "String", "API_BASE_URL", '"http://192.168.29.76:8000"'
+            buildConfigField "String", "API_BASE_URL", "\"https://medical-api.globalresearchforum.in\""
             manifestPlaceholders = [usesCleartextTraffic: "true"]
         }
         release {
