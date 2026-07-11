@@ -799,9 +799,13 @@ public class MainActivity extends Activity {
         scroll.addView(box);
         box.addView(safetyBanner());
         box.addView(text("My account", 24, true, COLOR_PRIMARY_DARK));
-        box.addView(text("Saved reports and credits are kept here, away from the main report screen.", 14, false, COLOR_MUTED));
+        box.addView(text(BuildConfig.MEDREPORT_FREE_MODE
+                ? "Saved reports are kept here, away from the main report screen."
+                : "Saved reports and credits are kept here, away from the main report screen.", 14, false, COLOR_MUTED));
         box.addView(button("Saved reports", new View.OnClickListener() { public void onClick(View v) { loadHistory(); }}, false));
-        box.addView(button("Buy credits", new View.OnClickListener() { public void onClick(View v) { showBuyCreditsScreen(); }}, true));
+        if (!BuildConfig.MEDREPORT_FREE_MODE) {
+            box.addView(button("Buy credits", new View.OnClickListener() { public void onClick(View v) { showBuyCreditsScreen(); }}, true));
+        }
         new AlertDialog.Builder(this)
                 .setView(scroll)
                 .setPositiveButton("Close", null)
@@ -809,6 +813,10 @@ public class MainActivity extends Activity {
     }
 
     private void showBuyCreditsScreen() {
+        if (BuildConfig.MEDREPORT_FREE_MODE) {
+            toast("This version is free. No credits needed.");
+            return;
+        }
         auditClientEvent("buy_credits_open");
         auditCreditEvent("credit_screen_open", "", remainingCredits());
         ScrollView scroll = new ScrollView(this);
@@ -862,6 +870,9 @@ public class MainActivity extends Activity {
     }
 
     private int remainingCredits() {
+        if (BuildConfig.MEDREPORT_FREE_MODE) {
+            return 999999;
+        }
         return prefs.getInt("paid_credits", 0);
     }
 
@@ -869,11 +880,18 @@ public class MainActivity extends Activity {
         if (isUnlimitedTestingMode()) return true;
         if (remainingCredits() > 0) return true;
         showBuyCreditsScreen();
+        if (BuildConfig.MEDREPORT_FREE_MODE) {
+            return true;
+        }
         toast("Please buy one credit to prepare the final report.");
         return false;
     }
 
     private void consumeOneCreditAfterSuccess() {
+        if (BuildConfig.MEDREPORT_FREE_MODE) {
+            auditCreditEvent("free_report_success", "", remainingCredits());
+            return;
+        }
         if (isUnlimitedTestingMode()) return;
         int credits = Math.max(0, remainingCredits() - 1);
         prefs.edit().putInt("paid_credits", credits).apply();

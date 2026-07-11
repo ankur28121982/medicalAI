@@ -9,6 +9,7 @@ android {
     buildFeatures { buildConfig true }
 
     def appToken = System.getenv("MEDREPORT_APP_TOKEN") ?: "change-this-token-before-release"
+    def freeMode = (System.getenv("MEDREPORT_FREE_MODE") ?: "true").toBoolean()
 
     defaultConfig {
         applicationId 'com.globalresearchforum.medreport'
@@ -18,6 +19,7 @@ android {
         versionName '1.0.19'
 
         buildConfigField "String", "API_BASE_URL", "\"https://medical-api.globalresearchforum.in\""
+        buildConfigField "boolean", "MEDREPORT_FREE_MODE", freeMode ? "true" : "false"
         buildConfigField "String", "APP_ACCESS_TOKEN", "\"${appToken}\""
         manifestPlaceholders = [usesCleartextTraffic: "false"]
     }
